@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Horario Digital</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h2>Control Horario Digital</h2>
+
+    <div id="main-app">
+        <h3>Usuarios</h3>
+        <select id="usuarioSelect" class="form-control"></select>
+        <button onclick="agregarUsuario()" class="btn btn-primary">➕ Añadir Usuario</button>
+        <ul id="usuariosLista" class="list-group"></ul>
+
+        <div class="menu">
+            <button class="btn btn-success" onclick="fichar('entrada')">Fichar Entrada</button>
+            <button class="btn btn-danger" onclick="fichar('salida')">Fichar Salida</button>
+        </div>
+
+        <h3>Registros</h3>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Entrada</th>
+                <th>Salida</th>
+                <th>Total Horas</th>
+                <th>Acciones</th>
+            </tr>
+            </thead>
+            <tbody id="registroTabla"></tbody>
+            <tfoot>
+            <tr>
+                <td colspan="3"><strong>Total de horas trabajadas:</strong></td>
+                <td id="totalHoras"></td>
+                <td></td>
+            </tr>
+            </tfoot>
+        </table>
+
+        <select id="tipoExportacion" class="form-control">
+            <option value="mes">Por Mes</option>
+            <option value="anio">Por Año</option>
+            <option value="personalizado">Personalizado</option>
+        </select>
+        <div id="fechasPersonalizadas" style="display: none;">
+            <input type="date" id="fechaInicio" class="form-control">
+            <input type="date" id="fechaFin" class="form-control">
+        </div>
+        <button onclick="exportarPDF()" class="btn btn-info">Exportar a PDF</button>
+        <button onclick="exportarExcel()" class="btn btn-info">Exportar a Excel</button>
+        <button onclick="borrarTodoRegistro()" class="btn btn-warning">Borrar Todos los registros</button>
+        <button onclick="borrarRegistrosDia()" class="btn btn-warning">Borrar registros del día</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module" src="script.js"></script>
+</body>
+</html>
