@@ -18,11 +18,37 @@ const db = getFirestore(app);
 
 let usuariosCache = []; // Para evitar recargas innecesarias
 let registrosCache = []; // Para evitar recargas innecesarias
+let usuarioPrimarioId = null; // ID del usuario primario
 let usuarioSeleccionadoId = null;
+
+const NOMBRE_USUARIO_PRIMARIO = "Usuario Primario"; // Define el nombre del usuario primario
+
+async function verificarUsuarioPrimario() {
+    const usuariosCollection = collection(db, 'users');
+    const q = query(usuariosCollection, where("name", "==", NOMBRE_USUARIO_PRIMARIO));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        // Si no existe el usuario primario, lo crea
+        const newUserDocRef = doc(usuariosCollection);
+        await setDoc(newUserDocRef, { name: NOMBRE_USUARIO_PRIMARIO });
+        usuarioPrimarioId = newUserDocRef.id; // Guarda el ID del usuario primario
+        console.log("Usuario primario creado.");
+    } else {
+        // Si ya existe, guarda su ID
+        querySnapshot.forEach((doc) => {
+            usuarioPrimarioId = doc.id;
+        });
+        console.log("Usuario primario ya existe.");
+    }
+}
 
 async function agregarUsuario() {
     const nombre = prompt("Introduce el nombre del usuario:");
-    if (!nombre) return;
+    if (!nombre || nombre === NOMBRE_USUARIO_PRIMARIO) {
+        alert("No puedes añadir un usuario con ese nombre.");
+        return;
+    }
 
     try {
         const usuariosCollection = collection(db, 'users');
@@ -30,7 +56,7 @@ async function agregarUsuario() {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            const newUserDocRef = doc(usuariosCollection); // Crear un nuevo documento con ID automático
+            const newUserDocRef = doc(usuariosCollection);
             await setDoc(newUserDocRef, { name: nombre });
             alert("Usuario añadido correctamente.");
         } else {
@@ -43,8 +69,12 @@ async function agregarUsuario() {
 }
 
 async function editarUsuario(usuarioAntiguo) {
+    if (usuarioAntiguo === NOMBRE_USUARIO_PRIMARIO) {
+        alert("No puedes editar el usuario primario.");
+        return;
+    }
     const nuevoNombre = prompt("Introduce el nuevo nombre del usuario:", usuarioAntiguo);
-    if (!nuevoNombre || nuevoNombre === usuarioAntiguo) return;
+    if (!nuevoNombre || nuevoNombre === usuarioAntiguo || nuevoNombre === NOMBRE_USUARIO_PRIMARIO) return;
 
     try {
         const usuariosCollection = collection(db, 'users');
@@ -66,6 +96,10 @@ async function editarUsuario(usuarioAntiguo) {
 }
 
 async function eliminarUsuario(usuario) {
+    if (usuario === NOMBRE_USUARIO_PRIMARIO) {
+        alert("No puedes eliminar el usuario primario.");
+        return;
+    }
     if (confirm(`¿Eliminar usuario ${usuario}?`)) {
         try {
             const usuariosCollection = collection(db, 'users');
@@ -98,14 +132,21 @@ function actualizarUsuarios() {
     const usuariosCollection = collection(db, 'users');
     onSnapshot(usuariosCollection, (snapshot) => {
         usuariosCache = [];
+        let usuarioPrimarioEncontrado = false;
         snapshot.forEach((doc) => {
-            usuariosCache.push({ id: doc.id, name: doc.data().name });
+            const userData = doc.data();
+            usuariosCache.push({ id: doc.id, name: userData.name });
+            if (userData.name === NOMBRE_USUARIO_PRIMARIO) {
+                usuarioPrimarioEncontrado = true;
+                usuarioPrimarioId = doc.id;
+            }
         });
 
         const select = document.getElementById("usuarioSelect");
         if (select) {
             select.innerHTML = '<option value="">Seleccionar Usuario</option>' + usuariosCache.map(user => `<option value="<span class="math-inline">\{user\.name\}"\></span>{user.name}</option>`).join('');
-            usuarioSeleccionadoId = select.value;
+            usuarioSeleccionadoId = select.value || NOMBRE_USUARIO_PRIMARIO; // Seleccionar el primario por defecto
+            select.value = usuarioSeleccionadoId; // Establecer el valor inicial del select
             select.onchange = () => {
                 usuarioSeleccionadoId = select.value;
                 actualizarTabla();
@@ -116,12 +157,19 @@ function actualizarUsuarios() {
         const usuariosLista = document.getElementById("usuariosLista");
         if (usuariosLista) {
             usuariosLista.innerHTML = usuariosCache.map(user => `
-                <li class="list-group-item">
-                    <span class="math-inline">\{user\.name\}
-<button onclick\="editarUsuario\('</span>{user.name}')" class="btn btn-sm btn-outline-secondary">✏️</button>
-                    <button onclick="eliminarUsuario('${user.name}')" class="btn btn-sm btn-outline-danger">❌</button>
+                <li class="list-group-item ${user.name === NOMBRE_USUARIO_PRIMARIO ? 'font-weight-bold text-primary' : ''}">
+                    ${user.name}
+                    ${user.name !== NOMBRE_USUARIO_PRIMARIO ? `
+                        <button onclick="editarUsuario('${user.name}')" class="btn btn-sm btn-outline-secondary">✏️</button>
+                        <button onclick="eliminarUsuario('${user.name}')" class="btn btn-sm btn-outline-danger">❌</button>
+                    ` : ''}
                 </li>
             `).join('');
+        }
+
+        // Asegurarse de que el usuario primario exista al cargar la página
+        if (!usuarioPrimarioEncontrado) {
+            verificarUsuarioPrimario();
         }
     });
 }
@@ -318,4 +366,26 @@ async function exportarPDF() {
 }
 
 function agruparRegistrosPorMes(registros) {
-    return registros.
+    const registrosPorMes = {};
+    registros.forEach(registro => {
+        const fecha = new Date(registro.date);
+        const año = fecha.getFullYear();
+        const mes = fecha.getMonth() + 1; // Los meses en JavaScript van de 0 a 11
+        const periodo = `<span class="math-inline">\{año\}\-</span>{mes < 10 ? '0' + mes : mes}`;
+        if (!registrosPorMes[periodo]) {
+            registrosPorMes[periodo] = [];
+        }
+        registrosPorMes[periodo].push(registro);
+    });
+    return registrosPorMes;
+}
+
+function agruparRegistrosPorAnio(registros) {
+    const registrosPorAnio = {};
+    registros.forEach(registro => {
+        const fecha = new Date(registro.date);
+        const año = fecha.getFullYear();
+        if (!registrosPorAnio[año]) {
+            registrosPorAnio[año] = [];
+        }
+        registrosPorAnio[año
